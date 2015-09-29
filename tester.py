@@ -8,7 +8,7 @@ grph = pyagg.graph.Histogram(vals, 5)
 
 import time
 t = time.clock()
-for each in c.split(vals, "natural"):
+for each in c.split(vals, [-77,-33,55]):
   print each
 print time.clock()-t
 

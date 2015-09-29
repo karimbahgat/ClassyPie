@@ -11,14 +11,15 @@ def breaks(values, algorithm, **kwargs):
     breaks = func(values, **kwargs)
     return breaks
 
-def split(values, algorithm, **kwargs):
+def split(values, breaks, **kwargs):
     """
     Splits a list of values into n non-overlapping classes based on the
     specified algorithm.
 
     Arguments:
 
-    - **algorithm**: The name of the algorithm to use. Valid names are:
+    - **breaks**: List of custom break values or the name of the algorithm to use.
+        Valid names are:
         - histogram (alias for equal)
         - equal
         - quantile
@@ -27,6 +28,7 @@ def split(values, algorithm, **kwargs):
         - natural
     - **values**: The list of values to classify.
     - **classes**: The number of classes to group the values into.
+    - more...
 
     Returns:
 
@@ -34,8 +36,15 @@ def split(values, algorithm, **kwargs):
     as a list of lists of values.
     """
     values = sorted(values)
-    func = _breaks.__dict__[algorithm]
-    breaks = func(values, **kwargs)
+
+    # if not custom specified, get break values from algorithm name
+    if isinstance(breaks, bytes):
+        func = _breaks.__dict__[breaks]
+        breaks = func(values, **kwargs)
+    else:
+        breaks.insert(0, min(values))
+        breaks.append(max(values))
+        
     # begin
     groups = []
     group = []
@@ -52,7 +61,7 @@ def split(values, algorithm, **kwargs):
                 nextbreak = breaks[0]
     # add last group
     groups.append( ((prevbreak,nextbreak), group) )
-    # somehow add remaining breaks even if no values in (eg if specify custom start and end values)
+    # somehow add remaining breaks even if no values in (eg if specified custom start and end values)
     # ...
     return groups
 
