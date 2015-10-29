@@ -320,5 +320,43 @@ def natural(values, classes=5, maxsize=1000, samples=3):
 
     return jenksbreaks
 
+def headtail(values, classes=5):
+    """
+    New head tails classification scheme,
+    claimed to better highlight a few very
+    large values than natural breaks.
+    See: http://arxiv.org/ftp/arxiv/papers/1209/1209.2801.pdf
+    """
+
+    def _mean(values):
+        return sum(values)/float(len(values))
+    
+    def _mbreak(values):
+        m = _mean(values)
+        head = [v for v in values if v >= m]
+        tail = [v for v in values if v < m]
+        return head,m,tail
+
+    breaks = []
+    head,m,tail = _mbreak(values)
+    while len(tail) > len(head):
+        breaks.append(m)
+        if len(head) > 1:
+            head,m,tail = _mbreak(head)
+        else:
+            break
+
+    # add first and last endpoints
+    breaks.insert(0, values[0])
+    breaks.append(values[-1])
+    
+    # merge top breaks until under maxclasses
+    if classes and len(breaks) > classes:
+        pass
+        
+    return breaks
+
+def auto(values, classes=5, **kwargs):
+    pass
 
 
