@@ -3,14 +3,76 @@ from __future__ import division
 from . import _breaks
 import itertools
 
-def breaks(values, algorithm, presorted=False, **kwargs):
+def find_class(value, breaks):
+    """
+    Given a set of breakpoints, calculate which two breakpoints an input
+    value is located between, returning the class number (1 as the first class)
+    and the two enclosing breakpoint values. The breakpoints must include the maximum
+    and minimum possible value. 
+    """
+    prevbrk = breaks[0]
+    classnum = 1
+    for nextbrk in breaks[1:]:
+        if value <= nextbrk:
+            return classnum, (prevbrk,nextbrk)
+        classnum += 1
+    else:
+        raise Exception("Value was not within the range of the break points")
+
+def class_values(classes, fromval, toval):
+    """
+    Return x number of class values linearly interpolated
+    between a minimum and maximum value.
+
+    - classes: Number of classes values to return. 
+    - fromval and toval: can be either a single number or sequences of numbers
+        where a classvalue will be interpolated for each sequence number,
+        and so both sequences must be equally long. Thus, specifying the from
+        and to values as rgb color tuples will create interpolated color gradients.
+    """
+
+    def _lerp(val, oldfrom, oldto, newfrom, newto):
+        oldrange = oldto - oldfrom
+        relval = (val - oldfrom) / float(oldrange)
+        newrange = newto - newfrom
+        newval = newfrom + newrange * relval
+        return newval
+
+    # determine appropriate interp func for either sequenes or single values
+    if hasattr(fromval, "__iter__") and hasattr(fromval, "__iter__"):
+        if len(fromval) != len(toval):
+            raise Exception("If fromval and toval are sequences they must both have the same length")
+        def _interpfunc(val):
+            classval = [ _lerp(classnum, 0, classes-1, ifromval, itoval)
+                         for ifromval,itoval in zip(fromval,toval) ]
+            return classval
+    else:
+        def _interpfunc(val):
+            return _lerp(classnum, 0, classes-1, fromval, toval)
+    
+    # perform
+    classvalues = []
+    for classnum in range(classes):
+        classval = _interpfunc(classnum)
+        classvalues.append(classval)
+
+    return classvalues
+
+def breaks(items, algorithm, key=None, **kwargs):
     """
     Only get the break points, including the start and endpoint.
     """
-    if not presorted:
-        values = sorted(values)
+    # sort by key
+    if key:
+        items = sorted(items, key=key)
+        values = [key(item) for item in items]
+    else:
+        values = items = sorted(items)
+        
+    # get breaks
     func = _breaks.__dict__[algorithm]
     breaks = func(values, **kwargs)
+    
     return breaks
 
 def split(items, breaks, key=None, **kwargs):
