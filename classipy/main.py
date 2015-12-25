@@ -3,6 +3,125 @@ from __future__ import division
 from . import _breaks
 import itertools
 
+
+##class MultiClassifier(object):
+##
+##    # NOTE: Maybe not the fastest to run find_class on each value
+##    # maybe instead run split() for each classification and zip them
+##    # yielding each value and its (fastly calculated) classnum for each
+##    # iterate also to next classval at each new classnum
+##    # maybe also cache results
+##    # ...
+##
+##    def __init__(self, items):
+##        self.items = items
+##        self.classifications = dict()
+##
+##    def add_classification(self, id, breaks, fromval, toval, key=None, **kwargs):
+##        if isinstance(breaks, bytes):
+##            algo = breaks
+##            breaks = None
+##            
+##        else:
+##            algo = "custom"
+##            breaks = breaks
+##            
+##        instruct = dict(algo=algo,
+##                        breaks=breaks,
+##                        fromval=fromval,
+##                        toval=toval,
+##                        key=key,
+##                        kwargs=kwargs)
+##        
+##        self.classifications[id] = instruct
+##
+##    def classify(self, id):
+##        # force update/calculate breaks and class values
+##        # mostly used internally, though can be used to recalculate
+##        instruct = self.classifications[id]
+##        if instruct["algo"] != "custom":
+##            instruct["breaks"] = breaks(items=self.items,
+##                                        algorithm=instruct["algo"],
+##                                        key=instruct["key"],
+##                                        **instruct["kwargs"])
+##            
+##        instruct["classvalues"] = class_values(len(instruct["breaks"])-1, # -1 because break values include edgevalues so will be one more in length
+##                                               instruct["fromval"],
+##                                               instruct["toval"])
+##
+##    def __iter__(self):
+##        # first process any noncalculated classifications
+##        for id,instruct in self.classifications.items():
+##            if "classvalues" not in instruct:
+##                self.classify(id)
+##
+##        # loop and yield items along with their classnum and classvalue
+##        for item in self.items:
+##            info = dict()
+##            for id,instruct in self.classifications.items():
+##                if instruct["key"]:
+##                    val = instruct["key"](item)
+##                else:
+##                    val = item
+##                classnum,valrange = find_class(val, instruct["breaks"])
+##                classval = instruct["classvalues"][classnum-1]
+##                info[id] = classval
+##            yield item,info
+
+
+class Classification(object):
+    # probably replace instead of multiclassifier, one for each classification instead of multi
+    # ALSO, maybe allow unique categorization and maybe membership too
+
+    def __init__(self, items, breaks, fromval, toval, key=None, **kwargs):
+        self.items = items
+        
+        if isinstance(breaks, bytes):
+            algo = breaks
+            breaks = None
+            
+        else:
+            algo = "custom"
+            breaks = breaks
+            
+        self.algo = algo
+        self.breaks = breaks
+        self.fromval = fromval
+        self.toval = toval
+        self.key = key
+        self.kwargs = kwargs
+        self.classvalues = None
+
+        self.update()
+
+    def __repr__(self):
+        return "Classifier object, hmmmm..."
+
+    def update(self):
+        # force update/calculate breaks and class values
+        # mostly used internally, though can be used to recalculate
+
+        if self.algo != "custom":
+            self.breaks = breaks(items=self.items,
+                                algorithm=self.algo,
+                                key=self.key,
+                                **self.kwargs)
+            
+        self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
+                                       self.fromval,
+                                       self.toval)
+
+    def __iter__(self):
+        # loop and yield items along with their classnum and classvalue
+        for classnum,(valrange,subitems) in enumerate(split(self.items, self.breaks, **self.kwargs)):
+            classval = self.classvalues[classnum]
+            for item in subitems:
+                yield item,classval
+
+
+################################
+            
+
 def find_class(value, breaks):
     """
     Given a set of breakpoints, calculate which two breakpoints an input
@@ -10,11 +129,13 @@ def find_class(value, breaks):
     and the two enclosing breakpoint values. The breakpoints must include the maximum
     and minimum possible value. 
     """
+    
     prevbrk = breaks[0]
     classnum = 1
     for nextbrk in breaks[1:]:
         if value <= nextbrk:
             return classnum, (prevbrk,nextbrk)
+        prevbrk = nextbrk
         classnum += 1
     else:
         raise Exception("Value was not within the range of the break points")
@@ -134,10 +255,7 @@ def split(items, breaks, key=None, **kwargs):
 
     groups = []
     for valrange,members in itertools.groupby(items, key=find_class):
-        grp = (valrange, list(members))
-        groups.append(grp)
-        
-    return groups
+        yield valrange, list(members)
 
 def unique(items, key=None):
     """
@@ -152,15 +270,11 @@ def unique(items, key=None):
         key = lambda x: x
         items = sorted(items)
 
-    groups = []
     for uniq,members in itertools.groupby(items, key=key):
-        grp = (uniq, list(members))
-        groups.append(grp)
+        yield uniq, list(members)
 
     # maybe add remaining groups if none?
     # ... 
-        
-    return groups
 
 def membership(items, ranges, key=None):
     """
@@ -170,12 +284,10 @@ def membership(items, ranges, key=None):
     if not key:
         key = lambda x: x
     ###
-    groups = []
     for _min,_max in ranges:
         valitems = ((key(item),item) for item in items)
         members = [item for val,item in valitems if val >= _min and val <= _max]
-        groups.append( ((_min,_max), members) )
-    return groups
+        yield (_min,_max), members
 
 ##def rescale(values, newmin, newmax):
 ##    oldmin, oldmax = max(values), min(values)
