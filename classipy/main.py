@@ -2,6 +2,7 @@
 from __future__ import division
 from . import _breaks
 import itertools
+import math
 
 
 ##class MultiClassifier(object):
@@ -73,7 +74,7 @@ class Classifier(object):
     # probably replace instead of multiclassifier, one for each classification instead of multi
     # ALSO, maybe allow unique categorization and maybe membership too
 
-    def __init__(self, items, breaks, fromval, toval, key=None, **kwargs):
+    def __init__(self, items, breaks, valuestops, key=None, **kwargs):
         self.items = items
         
         if isinstance(breaks, bytes):
@@ -86,14 +87,10 @@ class Classifier(object):
             
         self.algo = algo
         self.breaks = breaks
-        self.fromval = fromval
-        self.toval = toval
+        self.valuestops = valuestops
         self.key = key
         self.kwargs = kwargs
-        if algo == "unique":
-            self.classvalues = kwargs["classvalues"]
-        else:
-            self.classvalues = None
+        self.classvalues = None
 
         self.update()
 
@@ -107,15 +104,17 @@ class Classifier(object):
     def update(self):
         # force update/calculate breaks and class values
         # mostly used internally, though can be used to recalculate
-        if self.algo != "unique":
+        if self.algo == "unique":
+            self.classvalues = self.valuestops
+
+        else:
             if self.algo != "custom":
                 self.breaks = breaks(items=self.items,
                                     algorithm=self.algo,
                                     key=self.key,
                                     **self.kwargs)
             self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
-                                           self.fromval,
-                                           self.toval)
+                                           self.valuestops)
 
     def __iter__(self):
         # loop and yield items along with their classnum and classvalue
@@ -160,20 +159,22 @@ def find_class(value, breaks):
     else:
         raise Exception("Value was not within the range of the break points")
 
-def class_values(classes, fromval, toval):
+def class_values(classes, valuestops):
     """
     Return x number of class values linearly interpolated
     between a minimum and maximum value.
 
     - classes: Number of classes values to return. 
-    - fromval and toval: can be either a single number or sequences of numbers
+    - valuestops: can be either a single number or sequences of numbers
         where a classvalue will be interpolated for each sequence number,
-        and so both sequences must be equally long. Thus, specifying the from
-        and to values as rgb color tuples will create interpolated color gradients.
+        and so all sequences must be equally long. Thus, specifying the
+        valuestops as rgb color tuples will create interpolated color gradients.
     """
     # special case
     if classes <= 1:
         raise Exception("Number of classes must be higher than 1")
+    if len(valuestops) < 2:
+        raise Exception("There must be at least two items in valuestops for interpolating between")
 
     def _lerp(val, oldfrom, oldto, newfrom, newto):
         oldrange = oldto - oldfrom
@@ -183,16 +184,28 @@ def class_values(classes, fromval, toval):
         return newval
 
     # determine appropriate interp func for either sequenes or single values
-    if hasattr(fromval, "__iter__") and hasattr(fromval, "__iter__"):
-        if len(fromval) != len(toval):
-            raise Exception("If fromval and toval are sequences they must both have the same length")
+    
+    # ALMOST THERE, JUST SLIGHTLY FUNKY INTERPOLATION NEEDING FIXING
+    # ...
+    
+    if all(hasattr(valstop, "__iter__") for valstop in valuestops):
+        _len = len(valuestops[0])
+        if any(len(valstop) != _len for valstop in valuestops):
+            raise Exception("If valuestops are sequences they must all have the same length")
         def _interpfunc(val):
-            classval = [ _lerp(classnum, 0, classes-1, ifromval, itoval)
-                         for ifromval,itoval in zip(fromval,toval) ]
+            relindex = _lerp(classnum, 0, classes-1, 0, len(valuestops)-1)
+            fromval = valuestops[int(math.floor(relindex))]
+            toval = valuestops[int(math.ceil(relindex))]
+            classval = [_lerp(relindex, 0, len(valuestops)-1, ifromval, itoval)
+                        for ifromval,itoval in zip(fromval,toval)]
             return classval
     else:
-        def _interpfunc(val):
-            return _lerp(classnum, 0, classes-1, fromval, toval)
+        def _interpfunc(classnum):
+            relindex = _lerp(classnum, 0, classes-1, 0, len(valuestops)-1)
+            fromval = valuestops[int(math.floor(relindex))]
+            toval = valuestops[int(math.ceil(relindex))]
+            classval = _lerp(relindex, 0, len(valuestops)-1, fromval, toval)
+            return classval
     
     # perform
     classvalues = []
