@@ -185,9 +185,6 @@ def class_values(classes, valuestops):
 
     # determine appropriate interp func for either sequenes or single values
     
-    # ALMOST THERE, JUST SLIGHTLY FUNKY INTERPOLATION NEEDING FIXING
-    # ...
-    
     if all(hasattr(valstop, "__iter__") for valstop in valuestops):
         _len = len(valuestops[0])
         if any(len(valstop) != _len for valstop in valuestops):
@@ -196,7 +193,7 @@ def class_values(classes, valuestops):
             relindex = _lerp(classnum, 0, classes-1, 0, len(valuestops)-1)
             fromval = valuestops[int(math.floor(relindex))]
             toval = valuestops[int(math.ceil(relindex))]
-            classval = [_lerp(relindex, 0, len(valuestops)-1, ifromval, itoval)
+            classval = [_lerp(relindex, int(relindex), int(relindex+1), ifromval, itoval)
                         for ifromval,itoval in zip(fromval,toval)]
             return classval
     else:
@@ -204,7 +201,7 @@ def class_values(classes, valuestops):
             relindex = _lerp(classnum, 0, classes-1, 0, len(valuestops)-1)
             fromval = valuestops[int(math.floor(relindex))]
             toval = valuestops[int(math.ceil(relindex))]
-            classval = _lerp(relindex, 0, len(valuestops)-1, fromval, toval)
+            classval = _lerp(relindex, int(relindex), int(relindex+1), fromval, toval)
             return classval
     
     # perform
