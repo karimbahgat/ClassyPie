@@ -69,7 +69,7 @@ import itertools
 ##            yield item,info
 
 
-class Classification(object):
+class Classifier(object):
     # probably replace instead of multiclassifier, one for each classification instead of multi
     # ALSO, maybe allow unique categorization and maybe membership too
 
@@ -95,7 +95,11 @@ class Classification(object):
         self.update()
 
     def __repr__(self):
-        return "Classifier object, hmmmm..."
+        import pprint
+        metadict = dict(algo=self.algo,
+                        breaks=self.breaks,
+                        classvalues=self.classvalues)
+        return "Classifier object:\n" + pprint.pformat(metadict, indent=4)
 
     def update(self):
         # force update/calculate breaks and class values
@@ -106,14 +110,13 @@ class Classification(object):
                                 algorithm=self.algo,
                                 key=self.key,
                                 **self.kwargs)
-            
         self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
                                        self.fromval,
                                        self.toval)
 
     def __iter__(self):
         # loop and yield items along with their classnum and classvalue
-        for classnum,(valrange,subitems) in enumerate(split(self.items, self.breaks, **self.kwargs)):
+        for classnum,(valrange,subitems) in enumerate(split(self.items, self.breaks, key=self.key, **self.kwargs)):
             classval = self.classvalues[classnum]
             for item in subitems:
                 yield item,classval
@@ -151,6 +154,9 @@ def class_values(classes, fromval, toval):
         and so both sequences must be equally long. Thus, specifying the from
         and to values as rgb color tuples will create interpolated color gradients.
     """
+    # special case
+    if classes <= 1:
+        raise Exception("Number of classes must be higher than 1")
 
     def _lerp(val, oldfrom, oldto, newfrom, newto):
         oldrange = oldto - oldfrom
