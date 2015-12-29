@@ -90,7 +90,10 @@ class Classifier(object):
         self.toval = toval
         self.key = key
         self.kwargs = kwargs
-        self.classvalues = None
+        if algo == "unique":
+            self.classvalues = kwargs["classvalues"]
+        else:
+            self.classvalues = None
 
         self.update()
 
@@ -104,22 +107,36 @@ class Classifier(object):
     def update(self):
         # force update/calculate breaks and class values
         # mostly used internally, though can be used to recalculate
-
-        if self.algo != "custom":
-            self.breaks = breaks(items=self.items,
-                                algorithm=self.algo,
-                                key=self.key,
-                                **self.kwargs)
-        self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
-                                       self.fromval,
-                                       self.toval)
+        if self.algo != "unique":
+            if self.algo != "custom":
+                self.breaks = breaks(items=self.items,
+                                    algorithm=self.algo,
+                                    key=self.key,
+                                    **self.kwargs)
+            self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
+                                           self.fromval,
+                                           self.toval)
 
     def __iter__(self):
         # loop and yield items along with their classnum and classvalue
-        for classnum,(valrange,subitems) in enumerate(split(self.items, self.breaks, key=self.key, **self.kwargs)):
-            classval = self.classvalues[classnum]
-            for item in subitems:
-                yield item,classval
+        
+        if self.algo == "unique":
+            # create eternal iterator over classvalues
+            def classvalgen ():
+                while True:
+                    for classval in self.classvalues:
+                        yield classval
+            classvalgen = classvalgen()
+            for uid,subitems in unique(self.items, key=self.key):
+                classval = next(classvalgen)
+                for item in subitems:
+                    yield item,classval
+
+        else:
+            for classnum,(valrange,subitems) in enumerate(split(self.items, self.breaks, key=self.key, **self.kwargs)):
+                classval = self.classvalues[classnum]
+                for item in subitems:
+                    yield item,classval
 
 
 ################################
