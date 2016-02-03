@@ -152,7 +152,7 @@ def find_class(value, breaks):
     prevbrk = breaks[0]
     classnum = 1
     for nextbrk in breaks[1:]:
-        if value <= nextbrk:
+        if bytes(value) <= bytes(nextbrk):
             return classnum, (prevbrk,nextbrk)
         prevbrk = nextbrk
         classnum += 1
@@ -270,9 +270,9 @@ def split(items, breaks, key=None, **kwargs):
         func = _breaks.__dict__[breaks]
         breaks = func(values, **kwargs)
     else:
-        # custom specified breakpoints, ensure endpoints are included
-        if breaks[0] != values[0]: breaks.insert(0, values[0])
-        if breaks[-1] != values[-1]: breaks.append(values[-1])
+        # custom specified breakpoints, ensure endpoints are included (str is needed for float comparisons)
+        if bytes(breaks[0]) != bytes(values[0]): breaks.insert(0, values[0])
+        if bytes(breaks[-1]) != bytes(values[-1]): breaks.append(values[-1])
 
     breaks_gen = (brk for brk in breaks)
     loopdict = dict()
@@ -281,7 +281,7 @@ def split(items, breaks, key=None, **kwargs):
 
     def find_class(item, loopdict=loopdict):
         val = key(item)
-        if val > loopdict["nextbrk"]:
+        if eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
             loopdict["prevbrk"] = loopdict["nextbrk"]
             loopdict["nextbrk"] = next(breaks_gen)
         return loopdict["prevbrk"],loopdict["nextbrk"]
