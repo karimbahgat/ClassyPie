@@ -21,13 +21,13 @@ items = [v**2 for v in range(100)]
 ##    print item,info
 
 
-cfier = cp.Classification(items,
-                          breaks="pretty",
-                          fromval=1,
-                          toval=10)
+cfier = cp.Classifier(items,
+                      breaks="pretty",
+                      valuestops=[1,30],
+                      #start=0,
+                      #end=10000
+                      )
 print "hmm"
-print cfier.algo
-print cfier.breaks
-print cfier.classvalues
+print cfier
 for item,classval in cfier:
     print item,classval

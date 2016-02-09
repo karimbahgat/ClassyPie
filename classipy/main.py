@@ -71,9 +71,7 @@ import math
 
 
 class Classifier(object):
-    # probably replace instead of multiclassifier, one for each classification instead of multi
-    # ALSO, maybe allow unique categorization and maybe membership too
-
+    
     def __init__(self, items, breaks, valuestops, key=None, **kwargs):
         self.items = items
         
@@ -115,6 +113,7 @@ class Classifier(object):
                                     **self.kwargs)
             self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
                                            self.valuestops)
+            print self.breaks,self.classvalues
 
     def __iter__(self):
         # loop and yield items along with their classnum and classvalue
@@ -132,10 +131,16 @@ class Classifier(object):
                     yield item,classval
 
         else:
-            for classnum,(valrange,subitems) in enumerate(split(self.items, self.breaks, key=self.key, **self.kwargs)):
-                classval = self.classvalues[classnum]
+            for valrange,subitems in split(self.items, self.breaks, key=self.key, **self.kwargs):
+                midval = (valrange[0] + valrange[1]) / 2.0
+                classnum,_ = self.find_class(midval)
+                print classnum,self.breaks
+                classval = self.classvalues[classnum-1] # index is zero-based while find_class returns 1-based
                 for item in subitems:
                     yield item,classval
+
+    def find_class(self, value):
+        return find_class(value, self.breaks)
 
 
 ################################
@@ -152,7 +157,7 @@ def find_class(value, breaks):
     prevbrk = breaks[0]
     classnum = 1
     for nextbrk in breaks[1:]:
-        if bytes(value) <= bytes(nextbrk):
+        if eval(bytes(value)) <= eval(bytes(nextbrk)):
             return classnum, (prevbrk,nextbrk)
         prevbrk = nextbrk
         classnum += 1
@@ -216,13 +221,25 @@ def breaks(items, algorithm, key=None, **kwargs):
     """
     Only get the break points, including the start and endpoint.
     """
+
+    # ensure values are numeric
+    def forcenumber(val):
+        try:
+            val = float(val)
+            return val
+        except:
+            return None
+    
     # sort by key
     if key:
-        items = sorted(items, key=key)
-        values = [key(item) for item in items]
+        keywrap = lambda x: forcenumber(key(x))
     else:
-        values = items = sorted(items)
+        keywrap = forcenumber
         
+    items = (item for item in items if keywrap(item) is not None)
+    items = sorted(items, key=keywrap)
+    values = [keywrap(item) for item in items]
+
     # get breaks
     func = _breaks.__dict__[algorithm]
     breaks = func(values, **kwargs)
@@ -257,13 +274,23 @@ def split(items, breaks, key=None, **kwargs):
     as a list of lists of items.
     """
 
+    # ensure values are numeric
+    def forcenumber(val):
+        try:
+            val = float(val)
+            return val
+        except:
+            return None
+
     # sort and get key
     if key:
-        items = sorted(items, key=key)
-        values = [key(item) for item in items]
+        keywrap = lambda x: forcenumber(key(x))
     else:
-        key = lambda x: x
-        values = items = sorted(items)
+        keywrap = forcenumber
+        
+    items = (item for item in items if keywrap(item) is not None)
+    items = sorted(items, key=keywrap)
+    values = [keywrap(item) for item in items]
 
     # if not custom specified, get break values from algorithm name
     if isinstance(breaks, bytes):
@@ -271,8 +298,9 @@ def split(items, breaks, key=None, **kwargs):
         breaks = func(values, **kwargs)
     else:
         # custom specified breakpoints, ensure endpoints are included (str is needed for float comparisons)
-        if bytes(breaks[0]) != bytes(values[0]): breaks.insert(0, values[0])
-        if bytes(breaks[-1]) != bytes(values[-1]): breaks.append(values[-1])
+        breaks = list(breaks)
+        if eval(bytes(values[0])) < eval(bytes(breaks[0])): breaks.insert(0, values[0])
+        if eval(bytes(values[-1])) > eval(bytes(breaks[-1])): breaks.append(values[-1])
 
     breaks_gen = (brk for brk in breaks)
     loopdict = dict()
@@ -280,8 +308,8 @@ def split(items, breaks, key=None, **kwargs):
     loopdict["nextbrk"] = next(breaks_gen)
 
     def find_class(item, loopdict=loopdict):
-        val = key(item)
-        if eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
+        val = keywrap(item)
+        while eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
             loopdict["prevbrk"] = loopdict["nextbrk"]
             loopdict["nextbrk"] = next(breaks_gen)
         return loopdict["prevbrk"],loopdict["nextbrk"]
