@@ -49,7 +49,6 @@ class Classifier(object):
                                     **self.kwargs)
             self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
                                            self.valuestops)
-            print self.breaks,self.classvalues
 
     def __iter__(self):
         # loop and yield items along with their classnum and classvalue
@@ -72,7 +71,6 @@ class Classifier(object):
                 classinfo = self.find_class(midval)
                 if classinfo is not None:
                     classnum,_ = classinfo
-                    print valrange,midval,classnum,self.breaks
                     classval = self.classvalues[classnum-1] # index is zero-based while find_class returns 1-based
                     for item in subitems:
                         yield item,classval
