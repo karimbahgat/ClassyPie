@@ -5,70 +5,6 @@ import itertools
 import math
 
 
-##class MultiClassifier(object):
-##
-##    # NOTE: Maybe not the fastest to run find_class on each value
-##    # maybe instead run split() for each classification and zip them
-##    # yielding each value and its (fastly calculated) classnum for each
-##    # iterate also to next classval at each new classnum
-##    # maybe also cache results
-##    # ...
-##
-##    def __init__(self, items):
-##        self.items = items
-##        self.classifications = dict()
-##
-##    def add_classification(self, id, breaks, fromval, toval, key=None, **kwargs):
-##        if isinstance(breaks, bytes):
-##            algo = breaks
-##            breaks = None
-##            
-##        else:
-##            algo = "custom"
-##            breaks = breaks
-##            
-##        instruct = dict(algo=algo,
-##                        breaks=breaks,
-##                        fromval=fromval,
-##                        toval=toval,
-##                        key=key,
-##                        kwargs=kwargs)
-##        
-##        self.classifications[id] = instruct
-##
-##    def classify(self, id):
-##        # force update/calculate breaks and class values
-##        # mostly used internally, though can be used to recalculate
-##        instruct = self.classifications[id]
-##        if instruct["algo"] != "custom":
-##            instruct["breaks"] = breaks(items=self.items,
-##                                        algorithm=instruct["algo"],
-##                                        key=instruct["key"],
-##                                        **instruct["kwargs"])
-##            
-##        instruct["classvalues"] = class_values(len(instruct["breaks"])-1, # -1 because break values include edgevalues so will be one more in length
-##                                               instruct["fromval"],
-##                                               instruct["toval"])
-##
-##    def __iter__(self):
-##        # first process any noncalculated classifications
-##        for id,instruct in self.classifications.items():
-##            if "classvalues" not in instruct:
-##                self.classify(id)
-##
-##        # loop and yield items along with their classnum and classvalue
-##        for item in self.items:
-##            info = dict()
-##            for id,instruct in self.classifications.items():
-##                if instruct["key"]:
-##                    val = instruct["key"](item)
-##                else:
-##                    val = item
-##                classnum,valrange = find_class(val, instruct["breaks"])
-##                classval = instruct["classvalues"][classnum-1]
-##                info[id] = classval
-##            yield item,info
-
 
 class Classifier(object):
     
@@ -133,11 +69,13 @@ class Classifier(object):
         else:
             for valrange,subitems in split(self.items, self.breaks, key=self.key, **self.kwargs):
                 midval = (valrange[0] + valrange[1]) / 2.0
-                classnum,_ = self.find_class(midval)
-                print classnum,self.breaks
-                classval = self.classvalues[classnum-1] # index is zero-based while find_class returns 1-based
-                for item in subitems:
-                    yield item,classval
+                classinfo = self.find_class(midval)
+                if classinfo is not None:
+                    classnum,_ = classinfo
+                    print valrange,midval,classnum,self.breaks
+                    classval = self.classvalues[classnum-1] # index is zero-based while find_class returns 1-based
+                    for item in subitems:
+                        yield item,classval
 
     def find_class(self, value):
         return find_class(value, self.breaks)
@@ -150,19 +88,21 @@ def find_class(value, breaks):
     """
     Given a set of breakpoints, calculate which two breakpoints an input
     value is located between, returning the class number (1 as the first class)
-    and the two enclosing breakpoint values. The breakpoints must include the maximum
-    and minimum possible value. 
+    and the two enclosing breakpoint values. A value that is not between any of
+    the breakpoints, ie larger or smaller than the break endpoints, is considered
+    to be a miss and returns None. 
     """
     
     prevbrk = breaks[0]
     classnum = 1
     for nextbrk in breaks[1:]:
-        if eval(bytes(value)) <= eval(bytes(nextbrk)):
+        if eval(bytes(prevbrk)) <= eval(bytes(value)) <= eval(bytes(nextbrk)):
             return classnum, (prevbrk,nextbrk)
         prevbrk = nextbrk
         classnum += 1
     else:
-        raise Exception("Value was not within the range of the break points")
+        # Value was not within the range of the break points
+        return None
 
 def class_values(classes, valuestops):
     """
@@ -255,7 +195,7 @@ def split(items, breaks, key=None, **kwargs):
     Arguments:
 
     - **items**: The list of items or values to classify.
-    - **breaks**: List of custom break values or the name of the algorithm to use.
+    - **breaks**: List of custom break values, or the name of the algorithm to use.
         Valid names are:
         - histogram (alias for equal)
         - equal
@@ -264,7 +204,7 @@ def split(items, breaks, key=None, **kwargs):
         - stdev
         - natural
         - headtail
-    - **key** (optional): Function used to extract value from each item, defaults to None. 
+    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value. 
     - **classes** (optional): The number of classes to group the items into.
     - more...
 
@@ -297,10 +237,8 @@ def split(items, breaks, key=None, **kwargs):
         func = _breaks.__dict__[breaks]
         breaks = func(values, **kwargs)
     else:
-        # custom specified breakpoints, ensure endpoints are included (str is needed for float comparisons)
+        # custom specified breakpoints
         breaks = list(breaks)
-        if eval(bytes(values[0])) < eval(bytes(breaks[0])): breaks.insert(0, values[0])
-        if eval(bytes(values[-1])) > eval(bytes(breaks[-1])): breaks.append(values[-1])
 
     breaks_gen = (brk for brk in breaks)
     loopdict = dict()
@@ -312,11 +250,14 @@ def split(items, breaks, key=None, **kwargs):
         while eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
             loopdict["prevbrk"] = loopdict["nextbrk"]
             loopdict["nextbrk"] = next(breaks_gen)
-        return loopdict["prevbrk"],loopdict["nextbrk"]
+        if eval(bytes(loopdict["prevbrk"])) <= eval(bytes(val)) <= eval(bytes(loopdict["nextbrk"])):
+            return loopdict["prevbrk"],loopdict["nextbrk"]
+        else:
+            return None
 
-    groups = []
     for valrange,members in itertools.groupby(items, key=find_class):
-        yield valrange, list(members)
+        if valrange is not None:
+            yield valrange, list(members)
 
 def unique(items, key=None):
     """
