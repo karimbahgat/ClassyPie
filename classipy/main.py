@@ -245,11 +245,21 @@ def split(items, breaks, key=None, **kwargs):
 
     def find_class(item, loopdict=loopdict):
         val = keywrap(item)
-        while eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
-            loopdict["prevbrk"] = loopdict["nextbrk"]
-            loopdict["nextbrk"] = next(breaks_gen)
-        if eval(bytes(loopdict["prevbrk"])) <= eval(bytes(val)) <= eval(bytes(loopdict["nextbrk"])):
-            return loopdict["prevbrk"],loopdict["nextbrk"]
+##        while eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
+##            loopdict["prevbrk"] = loopdict["nextbrk"]
+##            loopdict["nextbrk"] = next(breaks_gen)
+##        if eval(bytes(loopdict["prevbrk"])) <= eval(bytes(val)) <= eval(bytes(loopdict["nextbrk"])):
+##            return loopdict["prevbrk"],loopdict["nextbrk"]
+        prevbrk = breaks[0]
+        for i,nextbrk in enumerate(breaks[1:]):
+            print val,i+1,len(breaks)-1
+            if eval(bytes(prevbrk)) <= eval(bytes(val)) < eval(bytes(nextbrk)):
+                return prevbrk,nextbrk
+            elif eval(bytes(prevbrk)) == eval(bytes(val)) == eval(bytes(nextbrk)):
+                return prevbrk,nextbrk
+            elif i+1==len(breaks)-1 and eval(bytes(val)) <= eval(bytes(nextbrk)):
+                return prevbrk,nextbrk
+            prevbrk = nextbrk
         else:
             return None
 
