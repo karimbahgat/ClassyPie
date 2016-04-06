@@ -245,15 +245,34 @@ def split(items, breaks, key=None, **kwargs):
 
     def find_class(item, loopdict=loopdict):
         val = keywrap(item)
+        
 ##        while eval(bytes(val)) > eval(bytes(loopdict["nextbrk"])):
 ##            loopdict["prevbrk"] = loopdict["nextbrk"]
 ##            loopdict["nextbrk"] = next(breaks_gen)
 ##        if eval(bytes(loopdict["prevbrk"])) <= eval(bytes(val)) <= eval(bytes(loopdict["nextbrk"])):
 ##            return loopdict["prevbrk"],loopdict["nextbrk"]
+        
+##        if eval(bytes(val)) < loopdict["prevbrk"]:
+##            # value lower than first class
+##            return None
+##        else:
+##            while not (eval(bytes(loopdict["prevbrk"])) <= eval(bytes(val)) <= eval(bytes(loopdict["nextbrk"]))):
+##                print eval(bytes(loopdict["prevbrk"])) , eval(bytes(val)) , eval(bytes(loopdict["nextbrk"]))
+##                # increment breaks until value is between
+##                loopdict["prevbrk"] = loopdict["nextbrk"]
+##                loopdict["nextbrk"] = next(breaks_gen, None)
+##                if loopdict["nextbrk"] == None:
+##                    return None
+##            # supposedly in between, so test and return class range
+##            if eval(bytes(loopdict["prevbrk"])) <= eval(bytes(val)) < eval(bytes(loopdict["nextbrk"])):
+##                return loopdict["prevbrk"],loopdict["nextbrk"]
+
         prevbrk = breaks[0]
         for i,nextbrk in enumerate(breaks[1:]):
-            print val,i+1,len(breaks)-1
-            if eval(bytes(prevbrk)) <= eval(bytes(val)) < eval(bytes(nextbrk)):
+            ###print val,i+1,len(breaks)-1
+            if eval(bytes(val)) < eval(bytes(prevbrk)):
+                return None
+            elif eval(bytes(prevbrk)) <= eval(bytes(val)) < eval(bytes(nextbrk)):
                 return prevbrk,nextbrk
             elif eval(bytes(prevbrk)) == eval(bytes(val)) == eval(bytes(nextbrk)):
                 return prevbrk,nextbrk
