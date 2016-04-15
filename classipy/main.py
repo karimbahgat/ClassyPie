@@ -155,7 +155,7 @@ def class_values(classes, valuestops):
 
     return classvalues
 
-def breaks(items, algorithm, key=None, **kwargs):
+def breaks(items, algorithm, key=None, extrabreaks=None, **kwargs):
     """
     Only get the break points, including the start and endpoint.
     """
@@ -181,6 +181,23 @@ def breaks(items, algorithm, key=None, **kwargs):
     # get breaks
     func = _breaks.__dict__[algorithm]
     breaks = func(values, **kwargs)
+
+    # insert extra breaks (list of single break values or pairs)
+    if extrabreaks:
+        for val in extrabreaks:
+            oldbreaks = list(breaks)
+            
+            # insert single break value anywhere after first same or greater breakpoint
+            # (remember that duplicate breakpoints will collect only that specific value)
+            prevbrk = oldbreaks[0]
+            i = 0
+            for nextbrk in oldbreaks[1:]:
+                if prevbrk <= val < nextbrk:
+                    breaks.insert(i, item[0])
+                    break
+                else:
+                    prevbrk = nextbrk
+                i += 1
     
     return breaks
 

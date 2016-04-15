@@ -67,6 +67,30 @@ def equal(values, classes=5, interval=None, anchor=None, clip=True, start=None, 
         res = [_min + k*unit for k in range(classes+1)]
 
     return res
+
+def log(values, classes=5):
+    """
+    Log classification algorithm.
+
+    Returns break points at equal intervals of the log10 of input values.
+    Handles 0s by adding 1 before log transforming. Negative values will raise Exception.
+    """
+    # log transform values
+    logs = [math.log10(v+1) for v in values]
+
+    # create breaks
+    minval,maxval = min(logs),max(logs)
+    interval = (maxval-minval)/float(classes)
+    logbreaks = []
+    cur = minval
+    while cur <= maxval:
+        logbreaks.append(cur)
+        cur += interval
+
+    # transform back
+    breaks = [(10**log)-1 for log in logbreaks]
+    
+    return breaks
     
 def quantile(values, classes=5):
     """
