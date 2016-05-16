@@ -8,7 +8,7 @@ import math
 
 class Classifier(object):
     
-    def __init__(self, items, breaks, valuestops, key=None, **kwargs):
+    def __init__(self, items, breaks, classvalues, key=None, **kwargs):
         self.items = items
         
         if isinstance(breaks, bytes):
@@ -21,10 +21,10 @@ class Classifier(object):
             
         self.algo = algo
         self.breaks = breaks
-        self.valuestops = valuestops
+        self.classvalues = classvalues # the raw preinterpolated valuestops of the classvalues
         self.key = key
         self.kwargs = kwargs
-        self.classvalues = None
+        self.classvalues_interp = None # the final interpolated classvalues
 
         self.update()
 
@@ -32,14 +32,14 @@ class Classifier(object):
         import pprint
         metadict = dict(algo=self.algo,
                         breaks=self.breaks,
-                        classvalues=self.classvalues)
+                        classvalues_interp=self.classvalues_interp)
         return "Classifier object:\n" + pprint.pformat(metadict, indent=4)
 
     def update(self):
         # force update/calculate breaks and class values
         # mostly used internally, though can be used to recalculate
         if self.algo == "unique":
-            self.classvalues = self.valuestops
+            self.classvalues_interp = self.classvalues
 
         else:
             if self.algo != "custom":
@@ -47,8 +47,8 @@ class Classifier(object):
                                     algorithm=self.algo,
                                     key=self.key,
                                     **self.kwargs)
-            self.classvalues = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
-                                           self.valuestops)
+            self.classvalues_interp = class_values(len(self.breaks)-1, # -1 because break values include edgevalues so will be one more in length
+                                                   self.classvalues)
 
     def __iter__(self):
         # loop and yield items along with their classnum and classvalue
@@ -57,7 +57,7 @@ class Classifier(object):
             # create eternal iterator over classvalues
             def classvalgen ():
                 while True:
-                    for classval in self.classvalues:
+                    for classval in self.classvalues_interp:
                         yield classval
             classvalgen = classvalgen()
             for uid,subitems in unique(self.items, key=self.key):
@@ -71,7 +71,7 @@ class Classifier(object):
                 classinfo = self.find_class(midval)
                 if classinfo is not None:
                     classnum,_ = classinfo
-                    classval = self.classvalues[classnum-1] # index is zero-based while find_class returns 1-based
+                    classval = self.classvalues_interp[classnum-1] # index is zero-based while find_class returns 1-based
                     for item in subitems:
                         yield item,classval
 
