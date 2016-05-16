@@ -155,7 +155,7 @@ def class_values(classes, valuestops):
 
     return classvalues
 
-def breaks(items, algorithm, key=None, extrabreaks=None, **kwargs):
+def breaks(items, algorithm, key=None, extrabreaks=None, exclude=None, minval=None, maxval=None, **kwargs):
     """
     Only get the break points, including the start and endpoint.
     """
@@ -175,6 +175,11 @@ def breaks(items, algorithm, key=None, extrabreaks=None, **kwargs):
         keywrap = forcenumber
         
     items = (item for item in items if keywrap(item) is not None)
+    if exclude is not None:
+        if not isinstance(exclude, (list,tuple)): exclude = [exclude]
+        items = (item for item in items if keywrap(item) not in exclude)
+    if minval is not None: items = (item for item in items if keywrap(item) >= minval)
+    if maxval is not None: items = (item for item in items if keywrap(item) <= maxval)
     items = sorted(items, key=keywrap)
     values = [keywrap(item) for item in items]
 
@@ -201,7 +206,7 @@ def breaks(items, algorithm, key=None, extrabreaks=None, **kwargs):
     
     return breaks
 
-def split(items, breaks, key=None, **kwargs):
+def split(items, breaks, key=None, exclude=None, minval=None, maxval=None, **kwargs):
     """
     Splits a list of items into n non-overlapping classes based on the
     specified algorithm. Values are either the items themselves or
@@ -219,6 +224,7 @@ def split(items, breaks, key=None, **kwargs):
         - stdev
         - natural
         - headtail
+        - log (base-10, uses offset to handle 0s but not negative numbers)
     - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value. 
     - **classes** (optional): The number of classes to group the items into.
     - more...
@@ -244,6 +250,11 @@ def split(items, breaks, key=None, **kwargs):
         keywrap = forcenumber
         
     items = (item for item in items if keywrap(item) is not None)
+    if exclude is not None:
+        if not isinstance(exclude, (list,tuple)): exclude = [exclude]
+        items = (item for item in items if keywrap(item) not in exclude)
+    if minval is not None: items = (item for item in items if keywrap(item) >= minval)
+    if maxval is not None: items = (item for item in items if keywrap(item) <= maxval)
     items = sorted(items, key=keywrap)
     values = [keywrap(item) for item in items]
 
@@ -303,18 +314,26 @@ def split(items, breaks, key=None, **kwargs):
         if valrange is not None:
             yield valrange, list(members)
 
-def unique(items, key=None):
+def unique(items, key=None, only=None, exclude=None):
     """
     Bins all same values together, so all bins are unique.
     Only for ints or text values.
+
+    If specified, only values listed in 'only' or not in 'exclude' will be returned. 
     """
     
     # sort and get key
     if key:
-        items = sorted(items, key=key)
+        pass
     else:
         key = lambda x: x
-        items = sorted(items)
+
+    if only:
+        items = (item for item in items if key(item) in only)
+    elif exclude:
+        items = (item for item in items if key(item) not in exclude)
+
+    items = sorted(items, key=key)
 
     for uniq,members in itertools.groupby(items, key=key):
         yield uniq, list(members)
