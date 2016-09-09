@@ -198,7 +198,7 @@ def breaks(items, algorithm, key=None, extrabreaks=None, exclude=None, minval=No
             i = 0
             for nextbrk in oldbreaks[1:]:
                 if prevbrk <= val < nextbrk:
-                    breaks.insert(i, item[0])
+                    breaks.insert(i, val)
                     break
                 else:
                     prevbrk = nextbrk
