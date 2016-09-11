@@ -24,6 +24,10 @@ def equal(values, classes=5, interval=None, anchor=None, clip=True, start=None, 
     or by specifying the interval and/or anchorpoint to start the divisioning. 
     """
     #values = sorted(values) # maybe not needed as is already done main.py
+
+    if len(values) == 1:
+        # when too few values, just return breakpoints for each unique value, ignoring classes
+        return values * 2
     
     # auto detect value range from values if not custom specified
     if start == None:
@@ -75,6 +79,10 @@ def log(values, classes=5):
     Returns break points at equal intervals of the log10 of input values.
     Handles 0s by adding 1 before log transforming. Negative values will raise Exception.
     """
+    # if too few values, just return breakpoints for each unique value, ignoring classes
+    if len(values) == 1:
+        return values * 2
+    
     # log transform values
     logs = [math.log10(v+1) for v in values]
 
@@ -101,6 +109,10 @@ def quantile(values, classes=5):
     """
 
     #values = sorted(values) # maybe not needed as is already done main.py
+
+    # if too few values, just return breakpoints for each unique value, ignoring classes
+    if len(values) <= classes:
+        return list(values) + [values[-1]]
     
     n = len(values)
     breaks = []
@@ -130,6 +142,10 @@ def pretty(values, classes=5, start=None, end=None):
         values : list of input values
         classes     : number of class intervals
     """
+
+    # if too few values, just return breakpoints for each unique value, ignoring classes
+    if values and len(values) == 1:
+        return values * 2
 
     # auto detect value range from values if not custom specified
     if start == None:
@@ -231,6 +247,10 @@ def stdev(values, classes=5):
     and may have a number of classes different from 'classes'.
     """
 
+    # if too few values, just return breakpoints for each unique value, ignoring classes
+    if len(values) <= classes:
+        return list(values) + [values[-1]]
+
     sd2 = 0.0
     N = len(values)
     _min = min(values)
@@ -262,6 +282,10 @@ def natural(values, classes=5, maxsize=1000, samples=3):
     """
 
     #values = sorted(values) # maybe not needed as is already done main.py
+
+    # if too few values, just return breakpoints for each unique value, ignoring classes
+    if len(values) <= classes:
+        return list(values) + [values[-1]]
 
     def getbreaks(values, classes):
         # the original algorithm by Carson Farmer
@@ -352,6 +376,10 @@ def headtail(values, classes=5):
     See: http://arxiv.org/ftp/arxiv/papers/1209/1209.2801.pdf
     """
 
+    # if too few values, just return breakpoints for each unique value, ignoring classes
+    if len(values) == 1:
+        return values * 2
+
     def _mean(values):
         return sum(values)/float(len(values))
     
@@ -381,6 +409,6 @@ def headtail(values, classes=5):
     return breaks
 
 def auto(values, classes=5, **kwargs):
-    pass
+    raise NotImplementedError()
 
 

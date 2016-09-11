@@ -54,16 +54,24 @@ class Classifier(object):
         # loop and yield items along with their classnum and classvalue
         
         if self.algo == "unique":
-            # create eternal iterator over classvalues
-            def classvalgen ():
-                while True:
-                    for classval in self.classvalues_interp:
-                        yield classval
-            classvalgen = classvalgen()
-            for uid,subitems in unique(self.items, key=self.key):
-                classval = next(classvalgen)
-                for item in subitems:
-                    yield item,classval
+            if isinstance(self.classvalues_interp, dict):
+                # only return specified uniqueval-classval pairs
+                for uid,subitems in unique(self.items, key=self.key, **self.kwargs):
+                    if uid in self.classvalues_interp:
+                        classval = self.classvalues_interp[uid]
+                        for item in subitems:
+                            yield item,classval
+            else:
+                # eternally iterate over classvalues for each unique value
+                def classvalgen ():
+                    while True:
+                        for classval in self.classvalues_interp:
+                            yield classval
+                classvalgen = classvalgen()
+                for uid,subitems in unique(self.items, key=self.key, **self.kwargs):
+                    classval = next(classvalgen)
+                    for item in subitems:
+                        yield item,classval
 
         else:
             for valrange,subitems in split(self.items, self.breaks, key=self.key, **self.kwargs):
@@ -115,7 +123,8 @@ def class_values(classes, valuestops):
     """
     # special case
     if classes <= 1:
-        raise Exception("Number of classes must be higher than 1")
+        #raise Exception("Number of classes must be higher than 1")
+        return [valuestops[0]]
     if len(valuestops) < 2:
         raise Exception("There must be at least two items in valuestops for interpolating between")
 
