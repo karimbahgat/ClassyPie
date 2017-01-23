@@ -363,20 +363,18 @@ def membership(items, ranges, key=None):
         members = [item for val,item in valitems if val >= _min and val <= _max]
         yield (_min,_max), members
 
-##def rescale(values, newmin, newmax):
-##    oldmin, oldmax = max(values), min(values)
-##    oldwidth = oldmax - oldmin
-##    newwidth = newmax - newmin
-##
-##    # begin
-##    newvalues = []
-##    for val in values:
-##        relval = (val - oldmin) / oldwidth
-##        newval = newmin + newwidth * relval
-##        newvalues.append(newval)
-##
-##    return newvalues
-##
+def rescale(values, newmin, newmax):
+    oldmin, oldmax = max(values), min(values)
+    oldwidth = oldmax - oldmin
+    newwidth = newmax - newmin
+
+    # begin
+    newvalues = []
+    for val in values:
+        relval = (val - oldmin) / oldwidth
+        newval = newmin + newwidth * relval
+        yield newval
+
 ##def rescale_single(value, oldmin, oldmax, newmin, newmax):
 ##    oldwidth = oldmax - oldmin
 ##    newwidth = newmax - newmin
