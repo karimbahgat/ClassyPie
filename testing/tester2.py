@@ -1,5 +1,5 @@
 
-import classipy as cp
+import classypie as cp
 
 items = [v**2 for v in range(100)]
 

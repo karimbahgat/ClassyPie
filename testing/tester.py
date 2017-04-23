@@ -1,4 +1,4 @@
-import classipy as c
+import classypie as c
 from random import randint
 import pyagg
 
