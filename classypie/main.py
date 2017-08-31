@@ -41,6 +41,20 @@ class Classifier(object):
         if self.algo == "unique":
             self.classvalues_interp = self.classvalues
 
+        elif self.algo == "proportional":
+            self.classvalues_interp = [self.classvalues[0], self.classvalues[-1]]
+            items,values = zip(*rescale(self.items,
+                                       newmin=self.classvalues_interp[0],
+                                       newmax=self.classvalues_interp[-1],
+                                       key=self.key,
+                                       **self.kwargs))
+            itemvals = [self.key(item) for item in items]
+            if self.classvalues_interp[0] < self.classvalues_interp[-1]:
+                minval,maxval = min(itemvals), max(itemvals)
+            else:
+                minval,maxval = max(itemvals), min(itemvals)
+            self.breaks = [minval,maxval]
+
         else:
             if self.algo != "custom":
                 self.breaks = breaks(items=self.items,
@@ -72,6 +86,14 @@ class Classifier(object):
                     classval = next(classvalgen)
                     for item in subitems:
                         yield item,classval
+
+        elif self.algo == "proportional":
+            for item,newval in rescale(self.items,
+                                       newmin=self.classvalues_interp[0],
+                                       newmax=self.classvalues_interp[-1],
+                                       key=self.key,
+                                       **self.kwargs):
+                yield item,newval
 
         else:
             for valrange,subitems in split(self.items, self.breaks, key=self.key, **self.kwargs):
@@ -363,26 +385,46 @@ def membership(items, ranges, key=None):
         members = [item for val,item in valitems if val >= _min and val <= _max]
         yield (_min,_max), members
 
-def rescale(values, newmin, newmax):
-    oldmin, oldmax = max(values), min(values)
+def rescale(items, newmin, newmax, key=None, only=None, exclude=None):
+    """
+    Iterates over all items, along with a new value for each.
+    The new value is the item value rescaled to range from newmin to newmax. 
+    """
+    # sort and get key
+    if key:
+        pass
+    else:
+        key = lambda x: x
+
+    pairs = ((item,key(item)) for item in items)
+
+    if only:
+        pairs = ((item,val) for item,val in pairs if val in only)
+    elif exclude:
+        pairs = ((item,val) for item,val in pairs if val not in exclude)
+
+    items,values = zip(*pairs)
+
+    
+    if newmin > newmax:
+        newmin,newmax = newmax,newmin
+        inverse = True
+    else:
+        inverse = False
+        
+    oldmin, oldmax = min(values), max(values)
     oldwidth = oldmax - oldmin
-    newwidth = newmax - newmin
+    newwidth = abs(newmax - newmin)
 
     # begin
     newvalues = []
-    for val in values:
+    for item,val in zip(items, values):
         relval = (val - oldmin) / oldwidth
+        if inverse:
+            relval = 1 - relval
         newval = newmin + newwidth * relval
-        yield newval
+        yield item,newval
 
-##def rescale_single(value, oldmin, oldmax, newmin, newmax):
-##    oldwidth = oldmax - oldmin
-##    newwidth = newmax - newmin
-##
-##    # begin
-##    relval = (value - oldmin) / oldwidth
-##    newval = newmin + newwidth * relval
-##    return newval
 
 
 
