@@ -405,29 +405,32 @@ def rescale(items, newmin, newmax, key=None, only=None, exclude=None):
 
     items,values = zip(*pairs)
 
-    
-    if newmin > newmax:
-        newmin,newmax = newmax,newmin
-        inverse = True
-    else:
-        inverse = False
-        
     oldmin, oldmax = min(values), max(values)
-    oldwidth = oldmax - oldmin
-    newwidth = abs(newmax - newmin)
 
-    # begin
-    newvalues = []
+    def _lerp(val, oldfrom, oldto, newfrom, newto):
+        oldrange = oldto - oldfrom
+        relval = (val - oldfrom) / float(oldrange)
+        newrange = newto - newfrom
+        newval = newfrom + newrange * relval
+        return newval
+
+    # determine appropriate interp func for either sequenes or single values
+
+    if hasattr(newmin, "__iter__") and hasattr(newmax, "__iter__"):
+        if len(newmin) != len(newmax):
+            raise Exception("If newmin/newmax are sequences they must both have the same length")
+        def newval(val):
+            return [_lerp(val, oldmin, oldmax, ifromval, itoval)
+                        for ifromval,itoval in zip(newmin,newmax)]
+    else:
+        def newval(val):
+            return _lerp(val, oldmin, oldmax, newmin, newmax)
+
     for item,val in zip(items, values):
-        relval = (val - oldmin) / oldwidth
-        if inverse:
-            relval = 1 - relval
-        newval = newmin + newwidth * relval
-        yield item,newval
-
-
-
-
+        nv = newval(val)
+        yield item, nv
+    
+    
 
 
 
