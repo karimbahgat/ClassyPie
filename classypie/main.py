@@ -390,13 +390,22 @@ def rescale(items, newmin, newmax, key=None, only=None, exclude=None):
     Iterates over all items, along with a new value for each.
     The new value is the item value rescaled to range from newmin to newmax. 
     """
+    # ensure values are numeric
+    def forcenumber(val):
+        try:
+            val = float(val)
+            return val
+        except:
+            return None
+
     # sort and get key
     if key:
-        pass
+        keywrap = lambda x: forcenumber(key(x))
     else:
-        key = lambda x: x
+        keywrap = forcenumber
 
-    pairs = ((item,key(item)) for item in items)
+    pairs = ((item,keywrap(item)) for item in items)
+    pairs = ((item,val) for item,val in pairs if val is not None)
 
     if only:
         pairs = ((item,val) for item,val in pairs if val in only)
@@ -416,7 +425,12 @@ def rescale(items, newmin, newmax, key=None, only=None, exclude=None):
 
     # determine appropriate interp func for either sequenes or single values
 
-    if hasattr(newmin, "__iter__") and hasattr(newmax, "__iter__"):
+    if oldmin == oldmax:
+        # special case, only one value, return max newval
+        def newval(val):
+            return newmax
+    elif hasattr(newmin, "__iter__") and hasattr(newmax, "__iter__"):
+        # tuples of eg colors
         if len(newmin) != len(newmax):
             raise Exception("If newmin/newmax are sequences they must both have the same length")
         def newval(val):
