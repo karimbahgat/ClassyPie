@@ -1,14 +1,69 @@
+"""
+Contains the main functionality for end-users. 
+"""
 
 from __future__ import division
-from . import _breaks
+from . import breaks as _breaks
 import itertools
 import math
 
 
 
 class Classifier(object):
+    """
+    A convenience class for managing a set of items/values according to a classification.
+    Upon initiation the classifier uses the input values to calculate the breakpoints and class values.
+    The classifier can then be iterated through to yield a tuple of the original items along
+    with the symbolic class value representing the group they belong to.
+
+    Attributes:
+
+    - items: The list of items or values managed by the classifier.
+    - algo: The name of the algorithm used to calculate the breakpoints, or 'custom' if the
+        breakpoints were manually specified. 
+    - breaks: Calculated list of break points. 
+    - classvalues: The original bounds/gradient of symbolic values to assign to each of the classes. 
+    - classvalues_interp: The interpolated gradient of symbolic values, one for each class grouping. 
+    - key: Function used to extract value from each item, defaults to None and treats item itself as the value.
+    - kwargs: The kwargs to pass to the algorithm function.
+            The algorithm functions and their arguments can be found in `classypie.breaks`.
+    """
     
     def __init__(self, items, breaks, classvalues, key=None, **kwargs):
+        """
+        Args:
+
+        - **items**: The list of items or values to classify.
+        - **breaks**: List of custom break values, or the name of the algorithm to use.
+            Valid names are:
+            - histogram (alias for equal)
+            - equal
+            - quantile
+            - pretty
+            - stdev
+            - natural
+            - headtail
+            - log (base-10, uses offset to handle 0s but not negative numbers)
+            - proportional
+        - classvalues: A gradient of symbolic values to assign to each of the classes. The lowest class is assigned
+            the first classvalue, the highest class is assigned the last classvalue, and classes in between are
+            interpolated between the classvalue bounds and/or any midpoints if given. 
+            Each entry can be either a single number or sequences of numbers
+            where a classvalue will be interpolated for each sequence number,
+            and so all sequences must be equally long. Thus, specifying the
+            classvalues as rgb color tuples will create interpolated color gradients.
+        - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value.
+        - **extrabreaks** (optional): Force insert additional break points. These are added to the original breakpoints,
+            so if the classification resulted in 5 groupings, and you insert 2 additional break values, the final classification
+            will contain 7 groupings. 
+        - **classes** (optional): The number of classes to group the items into. Needed for some break types but not others. 
+        - **exclude** (optional): A list of values defining which values to exclude.
+        - **minval** (optional): Sets the lower value boundary for the classification groupings, ignoring values below this threshold.
+        - **maxval** (optional): Sets the upper value boundary for the classification groupings, ignoring values above this threshold.
+        - **kwargs** (optional): Depending on the breaks algorithm used, any remaining kwargs are passed to the algorithm function.
+            The algorithm functions and their arguments can be found in `classypie.breaks`.
+        """
+        
         self.items = items
         
         if isinstance(breaks, bytes):
@@ -36,6 +91,12 @@ class Classifier(object):
         return "Classifier object:\n" + pprint.pformat(metadict, indent=4)
 
     def update(self):
+        """
+        Force update/calculate breaks and class values based on the item values.
+        Automatically called when initiating the classifier, but can be useful for
+        recalculating if the classifier attributes have been modified. 
+        Mostly used internally. 
+        """
         # force update/calculate breaks and class values
         # mostly used internally, though can be used to recalculate
         if self.algo == "unique":
@@ -106,6 +167,24 @@ class Classifier(object):
                         yield item,classval
 
     def find_class(self, value):
+        """
+        Given this classifier's breakpoints, calculate which two breakpoints an input
+        value is located between, returning the class number (1 as the first class)
+        and the two enclosing breakpoint values. A value that is not between any of
+        the breakpoints, ie larger or smaller than the break endpoints, is considered
+        to be a miss and returns None.
+        Mostly used internally. 
+
+        Args:
+
+        - **value**: The value for which to find the class. 
+
+        Returns:
+
+        - Return a tuple of the class number (1 as the first class) and the two
+            enclosing breakpoint values. If value is outside the scope of all breakpoints,
+            returns None.
+        """
         return find_class(value, self.breaks)
 
 
@@ -118,7 +197,18 @@ def find_class(value, breaks):
     value is located between, returning the class number (1 as the first class)
     and the two enclosing breakpoint values. A value that is not between any of
     the breakpoints, ie larger or smaller than the break endpoints, is considered
-    to be a miss and returns None. 
+    to be a miss and returns None.
+
+    Args:
+
+    - **value**: The value for which to find the class. 
+    - **breaks**: A list of break points that define the class groupings.
+
+    Returns:
+
+    - Return a tuple of the class number (1 as the first class) and the two
+        enclosing breakpoint values. If value is outside the scope of all breakpoints,
+        returns None. 
     """
     
     prevbrk = breaks[0]
@@ -134,14 +224,38 @@ def find_class(value, breaks):
 
 def class_values(classes, valuestops):
     """
-    Return x number of class values linearly interpolated
-    between a minimum and maximum value.
+    Given a range of valuestops (minimum, [...], maximum) of length n, linearly interpolate between those values
+    to a new list of length m. Useful for creating representative numeric or rgb color values for each grouping in
+    a classification.
 
-    - classes: Number of classes values to return. 
-    - valuestops: can be either a single number or sequences of numbers
+    Example:
+
+        >>> minmax = [0, 100]
+        >>> interp = classypie.class_values(5, minmax)
+        [0.0, 25.0, 50.0, 75.0, 100.0]
+
+        >>> colorgradient = [(0,255,0), (255,255,0), (255,0,0)] # green, yellow, red
+        >>> interp = classypie.class_values(5, colorgradient)
+        >>> for col in interp:
+        >>>     col
+        [0.0, 255.0, 0.0]   # green
+        [127.5, 255.0, 0.0] # green-yellow
+        [255.0, 255.0, 0.0] # yellow
+        [255.0, 127.5, 0.0] # orange
+        [255.0, 0.0, 0.0]   # red
+
+    Args:
+
+    - classes: Number of class values to interpolate to. 
+    - valuestops: The gradient of values representing the bounds (and optional midpoints) to interpolate
+        between. Each entry can be either a single number or sequences of numbers
         where a classvalue will be interpolated for each sequence number,
         and so all sequences must be equally long. Thus, specifying the
         valuestops as rgb color tuples will create interpolated color gradients.
+
+    Returns:
+
+    - A list of values the length of the number of classes, linearly interpolated between the input valuestops. 
     """
     # special case
     if classes <= 1:
@@ -188,7 +302,35 @@ def class_values(classes, valuestops):
 
 def breaks(items, algorithm, key=None, extrabreaks=None, exclude=None, minval=None, maxval=None, **kwargs):
     """
-    Only get the break points, including the start and endpoint.
+    Given a list of items or values, classify into groups and get their break points, including the start and endpoint.
+
+    Args:
+
+    - **items**: The list of items or values to classify.
+    - **algorithm**: Name of the classification algorithm to use.
+        Valid names are:
+        - histogram (alias for equal)
+        - equal
+        - quantile
+        - pretty
+        - stdev
+        - natural
+        - headtail
+        - log (base-10, uses offset to handle 0s but not negative numbers)
+    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value.
+    - **extrabreaks** (optional): Force insert additional break points. These are added to the original breakpoints,
+        so if the classification resulted in 5 groupings, and you insert 2 additional break values, the final classification
+        will contain 7 groupings. 
+    - **classes** (optional): The number of classes to group the items into. Needed for some break types but not others. 
+    - **exclude** (optional): A list of values defining which values to exclude.
+    - **minval** (optional): Sets the lower value boundary for the classification groupings, ignoring values below this threshold.
+    - **maxval** (optional): Sets the upper value boundary for the classification groupings, ignoring values above this threshold.
+    - **kwargs** (optional): Depending on the breaks algorithm used, any remaining kwargs are passed to the algorithm function.
+        The algorithm functions and their arguments can be found in `classypie.breaks`.
+
+    Returns:
+
+    - List of break points calculated for this algorithm in increasing order, i.e. the dividing lines between groupings. 
     """
 
     # ensure values are numeric
@@ -243,7 +385,7 @@ def split(items, breaks, key=None, exclude=None, minval=None, maxval=None, **kwa
     specified algorithm. Values are either the items themselves or
     a value extracted from the item using the key function. 
 
-    Arguments:
+    Args:
 
     - **items**: The list of items or values to classify.
     - **breaks**: List of custom break values, or the name of the algorithm to use.
@@ -256,14 +398,21 @@ def split(items, breaks, key=None, exclude=None, minval=None, maxval=None, **kwa
         - natural
         - headtail
         - log (base-10, uses offset to handle 0s but not negative numbers)
-    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value. 
-    - **classes** (optional): The number of classes to group the items into.
-    - more...
+    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value.
+    - **extrabreaks** (optional): Force insert additional break points. These are added to the original breakpoints,
+        so if the classification resulted in 5 groupings, and you insert 2 additional break values, the final classification
+        will contain 7 groupings. 
+    - **classes** (optional): The number of classes to group the items into. Needed for some break types but not others. 
+    - **exclude** (optional): A list of values defining which values to exclude.
+    - **minval** (optional): Sets the lower value boundary for the classification groupings, ignoring values below this threshold.
+    - **maxval** (optional): Sets the upper value boundary for the classification groupings, ignoring values above this threshold.
+    - **kwargs** (optional): Depending on the breaks algorithm used, any remaining kwargs are passed to the algorithm function.
+        The algorithm functions and their arguments can be found in `classypie.breaks`.
 
     Returns:
 
-    - All the input items reorganized into the groups/classes that they belong to,
-    as a list of lists of items.
+    - Iterates over the range groupings, each time yielding a 2-tuple of the group (its min-max value range) and a list of the
+        items belonging to that group. 
     """
 
     # ensure values are numeric
@@ -350,7 +499,12 @@ def unique(items, key=None, only=None, exclude=None):
     Bins all same values together, so all bins are unique.
     Only for ints or text values.
 
-    If specified, only values listed in 'only' or not in 'exclude' will be returned. 
+    Args:
+
+    - **items**: The list of items or values to classify.
+    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value.
+    - **only** (optional): A list of values defining which values to include. 
+    - **exclude** (optional): A list of values defining which values to exclude. Does not apply if `only` is already specified.
     """
     
     # sort and get key
@@ -375,6 +529,18 @@ def unique(items, key=None, only=None, exclude=None):
 def membership(items, ranges, key=None):
     """
     Groups can be overlapping/nonexclusive and are based on custom ranges.
+    This means that each item or value can be part of multiple group ranges. 
+
+    Args:
+
+    - **items**: The list of items or values to classify.
+    - **ranges**: A list of min-max tuples defining the upper and lower bounds of each group membership.
+    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value.
+
+    Returns:
+
+    - Iterates over the range groupings, each time yielding a 2-tuple of the group (its min-max value range) and a list of the
+        items belonging to that group. 
     """
     ###
     if not key:
@@ -388,7 +554,20 @@ def membership(items, ranges, key=None):
 def rescale(items, newmin, newmax, key=None, only=None, exclude=None):
     """
     Iterates over all items, along with a new value for each.
-    The new value is the item value rescaled to range from newmin to newmax. 
+    The new value is the item value rescaled to range from newmin to newmax.
+
+    Args:
+
+    - **items**: The list of items or values to rescale.
+    - **newmin**: The new minimum which the lowest item value will be rescaled to.
+    - **newmax**: The new maximum which the highest item value will be rescaled to.
+    - **key** (optional): Function used to extract value from each item, defaults to None and treats item itself as the value.
+    - **only** (optional): A list of values defining which values to include. 
+    - **exclude** (optional): A list of values defining which values to exclude. Does not apply if `only` is already specified.
+
+    Returns:
+
+    - Iterates over the input items, each time yielding a tuple of the original item along with the new rescaled value. 
     """
     # ensure values are numeric
     def forcenumber(val):

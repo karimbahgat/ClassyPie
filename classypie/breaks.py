@@ -1,3 +1,7 @@
+"""
+The actual breakpoint algorithm implementations. Users should not use these
+directly, but rather use the higher-level functionality in main.py. 
+"""
 # original: Carson Farmer
 # http://carsonfarmer.com/2010/09/playing-around-with-classification-algorithms-python-and-qgis/
 # modified: Karim Bahgat, 2015
@@ -408,7 +412,7 @@ def headtail(values, classes=5):
         
     return breaks
 
-def auto(values, classes=5, **kwargs):
-    raise NotImplementedError()
+##def auto(values, classes=5, **kwargs):
+##    raise NotImplementedError()
 
 
